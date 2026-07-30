@@ -1,0 +1,105 @@
+-- โหลด Library สำหรับสร้าง UI
+local Rayfield = game:GetService("Rayfield")
+
+local Window = Rayfield:CreateWindow({
+   Name = "Aimbot & FOV Script",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "by Assistant",
+   ConfigurationSaving = { Enabled = false }
+})
+
+-- ตัวแปรตั้งค่า Aimbot & FOV
+local AimbotEnabled = false
+local TeamCheck = true
+local FOVSize = 150 -- ขนาด FOV เริ่มต้น
+local AimPart = "Head" -- ส่วนที่จะเล็ง (Head หรือ HumanoidRootPart)
+
+-- สร้างวงกลม FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y / 2)
+FOVCircle.Radius = FOVSize
+FOVCircle.Filled = false
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1.5
+FOVCircle.Visible = false
+
+-- อัปเดตตำแหน่ง FOV ตามหน้าจอ
+local Camera = workspace.CurrentCamera
+local LocalPlayer = game.Players.LocalPlayer
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+end)
+
+-- ฟังก์ชันค้นหาเป้าหมายที่ใกล้เมาส์ที่สุดในระยะ FOV
+local function GetClosestPlayer()
+    local Target = nil
+    local MaxDistance = FOVSize
+    local MousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, v in pairs(game.Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(AimPart) and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            if TeamCheck and v.Team == LocalPlayer.Team then continue end
+
+            local ScreenPos, OnScreen = Camera:WorldToViewportPoint(v.Character[AimPart].Position)
+            if OnScreen then
+                local MouseDist = (Vector2.new(ScreenPos.X, ScreenPos.Y) - MousePos).Magnitude
+                if MouseDist < MaxDistance then
+                    MaxDistance = MouseDist
+                    Target = v
+                end
+            end
+        end
+    end
+    return Target
+end
+
+-- การทำงานของ Aimbot
+game:GetService("RunService").RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild(AimPart) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Character[AimPart].Position)
+        end
+    end
+end)
+
+-- หน้าต่างเมนูควบคุม
+local MainTab = Window:CreateTab("Aimbot", 4483362458)
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+      AimbotEnabled = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "แสดงวงกลม FOV",
+   CurrentValue = false,
+   Callback = function(Value)
+      FOVCircle.Visible = Value
+   end,
+})
+
+-- แถบปรับขนาด FOV
+MainTab:CreateSlider({
+   Name = "ขนาด FOV (FOV Size)",
+   Range = {50, 800},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 150,
+   Callback = function(Value)
+      FOVSize = Value
+      FOVCircle.Radius = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "ระบบเช็คทีม (Team Check)",
+   CurrentValue = true,
+   Callback = function(Value)
+      TeamCheck = Value
+   end,
+})
