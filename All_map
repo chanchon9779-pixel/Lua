@@ -1,0 +1,410 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "สร้างไปเรื่อยตัวเต็ม",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "โดย Script ภาษาไทย",
+   ConfigurationSaving = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+-- ตัวแปรระบบ (Variables)
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Variables: Combat
+local HitboxSize = 2
+local HitboxTrans = 0.5
+local HitboxEnabled = false
+local AimbotEnabled = false
+local FOVSize = 100
+local FOVCircle = Drawing.new("Circle")
+
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 60
+FOVCircle.Radius = FOVSize
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- Variables: Movement & Visuals
+local InfiniteJump = false
+local ESPEnabled = false
+local NoClipEnabled = false
+local Flying = false
+local FlySpeed = 50
+
+-- =======================================================
+-- TAB 1: Combat & Music (ระบบการต่อสู้ และ เพลง)
+-- =======================================================
+local Tab1 = Window:CreateTab("Combat & Music", 4483362458)
+
+Tab1:CreateSection("ระบบ Hitbox")
+
+Tab1:CreateToggle({
+   Name = "เปิด/ปิด Hitbox ใหญ่",
+   CurrentValue = false,
+   Callback = function(Value)
+      HitboxEnabled = Value
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ขนาด Hitbox",
+   Range = {2, 50},
+   Increment = 1,
+   Suffix = " Size",
+   CurrentValue = 2,
+   Callback = function(Value)
+      HitboxSize = Value
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ความโปร่งใส Hitbox",
+   Range = {0, 1},
+   Increment = 0.1,
+   Suffix = " Trans",
+   CurrentValue = 0.5,
+   Callback = function(Value)
+      HitboxTrans = Value
+   end,
+})
+
+-- ลูปการทำงาน Hitbox
+RunService.RenderStepped:Connect(function()
+   if HitboxEnabled then
+      for _, player in pairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+               local hrp = player.Character.HumanoidRootPart
+               hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+               hrp.Transparency = HitboxTrans
+               hrp.BrickColor = BrickColor.new("Really red")
+               hrp.Material = Enum.Material.Neon
+               hrp.CanCollide = false
+            end)
+         end
+      end
+   end
+end)
+
+Tab1:CreateSection("ระบบ Aimbot & FOV")
+
+Tab1:CreateToggle({
+   Name = "เปิด/ปิด Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+      AimbotEnabled = Value
+      FOVCircle.Visible = Value
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ปรับขนาด FOV",
+   Range = {30, 500},
+   Increment = 5,
+   Suffix = " Radius",
+   CurrentValue = 100,
+   Callback = function(Value)
+      FOVSize = Value
+      FOVCircle.Radius = Value
+   end,
+})
+
+-- ลูปการทำงาน Aimbot & FOV Circle
+RunService.RenderStepped:Connect(function()
+   local mousePos = UserInputService:GetMouseLocation()
+   FOVCircle.Position = mousePos
+
+   if AimbotEnabled then
+      local ClosestPlayer = nil
+      local ShortestDistance = FOVSize
+
+      for _, player in pairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(player.Character.Head.Position)
+            if onScreen then
+               local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+               if distance < ShortestDistance then
+                  ShortestDistance = distance
+                  ClosestPlayer = player
+               end
+            end
+         end
+      end
+
+      if ClosestPlayer and ClosestPlayer.Character and ClosestPlayer.Character:FindFirstChild("Head") then
+         workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, ClosestPlayer.Character.Head.Position)
+      end
+   end
+end)
+
+Tab1:CreateSection("ระบบ Teleport (วาร์ป)")
+
+local SelectedPlayer = nil
+local PlayerDropdown = Tab1:CreateDropdown({
+   Name = "เลือกผู้เล่นที่จะวาร์ปไปหา",
+   Options = {"กำลังโหลด..."},
+   CurrentOption = {""},
+   Callback = function(Option)
+      SelectedPlayer = Option[1]
+   end,
+})
+
+-- ระบบอัปเดตรายชื่อผู้เล่นอัตโนมัติ
+local function UpdatePlayerList()
+   local pList = {}
+   for _, p in pairs(Players:GetPlayers()) do
+      if p ~= LocalPlayer then
+         table.insert(pList, p.Name)
+      end
+   end
+   PlayerDropdown:Refresh(pList)
+end
+
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
+
+Tab1:CreateButton({
+   Name = "วาปไปหาผู้เล่นที่เลือก",
+   Callback = function()
+      if SelectedPlayer and Players:FindFirstChild(SelectedPlayer) then
+         local targetChar = Players[SelectedPlayer].Character
+         if targetChar and targetChar:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+         end
+      end
+   end,
+})
+
+Tab1:CreateSection("ระบบเปิดเพลง (Music)")
+
+local CurrentSound = nil
+local SoundID = ""
+
+Tab1:CreateInput({
+   Name = "ใส่ ID เพลง (Sound ID)",
+   PlaceholderText = "เช่น 1848354536",
+   RemoveTextOnFocus = false,
+   Callback = function(Text)
+      SoundID = Text
+   end,
+})
+
+Tab1:CreateButton({
+   Name = "เล่นเพลง",
+   Callback = function()
+      if CurrentSound then CurrentSound:Destroy() end
+      CurrentSound = Instance.new("Sound", game:GetService("SoundService"))
+      CurrentSound.SoundId = "rbxassetid://" .. SoundID
+      CurrentSound.Volume = 2
+      CurrentSound.Looped = true
+      CurrentSound:Play()
+   end,
+})
+
+Tab1:CreateButton({
+   Name = "หยุดเพลง",
+   Callback = function()
+      if CurrentSound then
+         CurrentSound:Stop()
+         CurrentSound:Destroy()
+      end
+   end,
+})
+
+
+-- =======================================================
+-- TAB 2: Player & Movement (ตัวผู้เล่น และ การเคลื่อนที่)
+-- =======================================================
+local Tab2 = Window:CreateTab("Player Settings", 4483362458)
+
+Tab2:CreateSection("ปรับแต่งค่าตัวละคร")
+
+Tab2:CreateSlider({
+   Name = "ความเร็วการวิ่ง (WalkSpeed)",
+   Range = {16, 200},
+   Increment = 1,
+   Suffix = " Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+         LocalPlayer.Character.Humanoid.WalkSpeed = Value
+      end
+   end,
+})
+
+Tab2:CreateSlider({
+   Name = "ความแรงการกระโดด (JumpPower)",
+   Range = {50, 300},
+   Increment = 5,
+   Suffix = " Power",
+   CurrentValue = 50,
+   Callback = function(Value)
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+         LocalPlayer.Character.Humanoid.JumpPower = Value
+      end
+   end,
+})
+
+Tab2:CreateToggle({
+   Name = "เปิด/ปิด กระโดดไม่จำกัด (Inf Jump)",
+   CurrentValue = false,
+   Callback = function(Value)
+      InfiniteJump = Value
+   end,
+})
+
+UserInputService.JumpRequest:Connect(function()
+   if InfiniteJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+      LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+   end
+end)
+
+Tab2:CreateSection("ระบบสายตาและเคลื่อนที่พิเศษ")
+
+Tab2:CreateToggle({
+   Name = "มอง ESP (กล่องมองทะลุตึก)",
+   CurrentValue = false,
+   Callback = function(Value)
+      ESPEnabled = Value
+      for _, p in pairs(Players:GetPlayers()) do
+         if p ~= LocalPlayer and p.Character then
+            if Value then
+               if not p.Character:FindFirstChild("HighlightESP") then
+                  local hl = Instance.new("Highlight")
+                  hl.Name = "HighlightESP"
+                  hl.FillColor = Color3.fromRGB(255, 0, 0)
+                  hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                  hl.Parent = p.Character
+               end
+            else
+               if p.Character:FindFirstChild("HighlightESP") then
+                  p.Character.HighlightESP:Destroy()
+               end
+            end
+         end
+      end
+   end,
+})
+
+Tab2:CreateToggle({
+   Name = "เปิด/ปิด NoClip (เดินทะลุสิ่งกีดขวาง)",
+   CurrentValue = false,
+   Callback = function(Value)
+      NoClipEnabled = Value
+   end,
+})
+
+RunService.Stepped:Connect(function()
+   if NoClipEnabled and LocalPlayer.Character then
+      for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+         if part:IsA("BasePart") then
+            part.CanCollide = false
+         end
+      end
+   end
+end)
+
+Tab2:CreateSection("ระบบบิน (Fly ควบคุมทิศทาง)")
+
+Tab2:CreateSlider({
+   Name = "ความเร็วการบิน",
+   Range = {10, 200},
+   Increment = 5,
+   Suffix = " Speed",
+   CurrentValue = 50,
+   Callback = function(Value)
+      FlySpeed = Value
+   end,
+})
+
+local BodyVelocity, BodyGyro
+
+Tab2:CreateToggle({
+   Name = "เปิด/ปิด ระบบบิน (Fly)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Flying = Value
+      local char = LocalPlayer.Character
+      if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+      local hrp = char.HumanoidRootPart
+
+      if Flying then
+         BodyVelocity = Instance.new("BodyVelocity")
+         BodyGyro = Instance.new("BodyGyro")
+
+         BodyVelocity.MaxForce = Vector3.new(1,1,1) * math.huge
+         BodyGyro.MaxTorque = Vector3.new(1,1,1) * math.huge
+         BodyGyro.P = 9e4
+
+         BodyVelocity.Parent = hrp
+         BodyGyro.Parent = hrp
+      else
+         if BodyVelocity then BodyVelocity:Destroy() end
+         if BodyGyro then BodyGyro:Destroy() end
+      end
+   end,
+})
+
+-- ควบคุมทิศทางการบินตามมุมมองกล้อง
+RunService.RenderStepped:Connect(function()
+   if Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+      local hrp = LocalPlayer.Character.HumanoidRootPart
+      local cam = workspace.CurrentCamera
+
+      local moveDir = Vector3.new()
+      if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + cam.CFrame.LookVector end
+      if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - cam.CFrame.LookVector end
+      if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - cam.CFrame.RightVector end
+      if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + cam.CFrame.RightVector end
+      if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+      if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+      if BodyVelocity and BodyGyro then
+         BodyVelocity.Velocity = moveDir * FlySpeed
+         BodyGyro.CFrame = cam.CFrame
+      end
+   end
+end)
+
+
+-- =======================================================
+-- TAB 3: Credits & Links (เครดิตผู้พัฒนา)
+-- =======================================================
+local Tab3 = Window:CreateTab("Credits & Links", 4483362458)
+
+Tab3:CreateSection("คนสร้างสคริป")
+Tab3:CreateLabel("Script ภาษาไทย")
+
+Tab3:CreateSection("ชื่อ Script")
+Tab3:CreateLabel("สร้างไปเรื่อยตัวเต็ม")
+
+Tab3:CreateSection("ช่องทางติดตาม (TikTok)")
+local TikTokURL = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg"
+
+Tab3:CreateInput({
+   Name = "ลิงก์ TikTok ผู้สร้าง",
+   PlaceholderText = TikTokURL,
+   RemoveTextOnFocus = false,
+   Callback = function() end,
+})
+
+Tab3:CreateButton({
+   Name = "คัดลอกลิงก์ TikTok ลง คลิปบอร์ด",
+   Callback = function()
+      setclipboard(TikTokURL)
+      Rayfield:Notify({
+         Title = "สำเร็จ!",
+         Content = "คัดลอกลิงก์ TikTok เรียบร้อยแล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
