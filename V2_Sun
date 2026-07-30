@@ -1,0 +1,491 @@
+-- ======================================================
+-- สคริปต์: สร้างไปเรื่อยเวอร์ชั่นเต็ม
+-- ผู้สร้าง: ซัน
+-- UI Library: Rayfield
+-- ======================================================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "สร้างไปเรื่อยเวอร์ชั่นเต็ม",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "โดย ซัน",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   Discord = {
+      Enabled = false,
+   },
+   KeySystem = false
+})
+
+-- ==================== SERVICES & VARIABLES ====================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Variables: Hitbox
+local HitboxEnabled = false
+local HitboxSize = 5
+local HitboxTransparency = 0.5
+local HitboxColor = Color3.fromRGB(255, 0, 0)
+
+-- Variables: Aimbot
+local AimbotEnabled = false
+local AimbotFOV = 100
+local FOVVisible = false
+local WallCheck = false
+local TeamCheck = false
+
+-- Variables: Player
+local WalkSpeedValue = 16
+local JumpPowerValue = 50
+local InfJumpEnabled = false
+local NoclipEnabled = false
+local Flying = false
+local FlySpeed = 50
+
+-- Variables: ESP
+local ESPEnabled = false
+
+-- Variables: Music
+local CurrentSound = nil
+
+-- ==================== FOV Circle Setup ====================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 60
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = AimbotFOV
+    FOVCircle.Visible = FOVVisible and AimbotEnabled
+end)
+
+-- ==================== HITBOX LOGIC ====================
+RunService.RenderStepped:Connect(function()
+    if HitboxEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = player.Character.HumanoidRootPart
+                hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                hrp.Transparency = HitboxTransparency
+                hrp.Color = HitboxColor
+                hrp.Material = Enum.Material.ForceField
+                hrp.CanCollide = false
+            end
+        end
+    end
+end)
+
+local function ResetHitboxes()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            hrp.Size = Vector3.new(2, 2, 1)
+            hrp.Transparency = 1
+            hrp.Material = Enum.Material.Plastic
+        end
+    end
+end
+
+-- ==================== AIMBOT LOGIC ====================
+local function IsVisible(targetPart)
+    if not WallCheck then return true end
+    local origin = Camera.CFrame.Position
+    local destination = targetPart.Position
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+    
+    local result = workspace:Raycast(origin, destination - origin, raycastParams)
+    return result == nil
+end
+
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = AimbotFOV
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChildOfClass("Humanoid") then
+            if player.Character.Humanoid.Health > 0 then
+                -- Team Check
+                if TeamCheck and player.Team == LocalPlayer.Team then
+                    continue
+                end
+
+                local head = player.Character.Head
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+                if onScreen then
+                    local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+
+                    if distance < shortestDistance then
+                        if IsVisible(head) then
+                            shortestDistance = distance
+                            closestPlayer = player
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+    if AimbotEnabled then
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
+        end
+    end
+end)
+
+-- ==================== ESP LOGIC ====================
+local function UpdateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = player.Character:FindFirstChild("PlayerHighlight")
+            if ESPEnabled then
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "PlayerHighlight"
+                    highlight.Parent = player.Character
+                    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0
+                end
+            else
+                if highlight then
+                    highlight:Destroy()
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(function()
+    if ESPEnabled then
+        UpdateESP()
+    end
+end)
+
+-- ==================== NOCLIP LOGIC ====================
+RunService.Stepped:Connect(function()
+    if NoclipEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- ==================== INFINITE JUMP ====================
+UserInputService.JumpRequest:Connect(function()
+    if InfJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- ==================== FLY LOGIC ====================
+local bodyGyro, bodyVelocity
+local function StartFly()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    
+    bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.P = 9e4
+    bodyGyro.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.cframe = hrp.CFrame
+    bodyGyro.Parent = hrp
+
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.velocity = Vector3.new(0, 0.1, 0)
+    bodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
+    bodyVelocity.Parent = hrp
+
+    task.spawn(function()
+        while Flying do
+            RunService.RenderStepped:Wait()
+            bodyGyro.cframe = Camera.CFrame
+            bodyVelocity.velocity = Camera.CFrame.LookVector * FlySpeed
+        end
+        if bodyGyro then bodyGyro:Destroy() end
+        if bodyVelocity then bodyVelocity:Destroy() end
+    end)
+end
+
+-- ======================================================
+-- TABS & UI CONTROLS
+-- ======================================================
+
+-- TAB 1: ระบบต่อสู้ & ESP
+local Tab1 = Window:CreateTab("ต่อสู้ & ESP", 4483362458)
+
+Tab1:CreateSection("--- ระบบ Hitbox ---")
+
+Tab1:CreateToggle({
+   Name = "เปิด/ปิด Hitbox",
+   CurrentValue = false,
+   Callback = function(Value)
+      HitboxEnabled = Value
+      if not Value then
+          ResetHitboxes()
+      end
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ขนาด Hitbox",
+   Range = {2, 50},
+   Increment = 1,
+   Suffix = " Size",
+   CurrentValue = 5,
+   Callback = function(Value)
+      HitboxSize = Value
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ความโปร่งใส Hitbox",
+   Range = {0, 1},
+   Increment = 0.1,
+   Suffix = " Transparency",
+   CurrentValue = 0.5,
+   Callback = function(Value)
+      HitboxTransparency = Value
+   end,
+})
+
+Tab1:CreateColorPicker({
+    Name = "เปลี่ยนสี Hitbox",
+    Color = Color3.fromRGB(255,0,0),
+    Callback = function(Value)
+        HitboxColor = Value
+    end
+})
+
+Tab1:CreateSection("--- ระบบ Aimbot (มือถือ) ---")
+
+Tab1:CreateToggle({
+   Name = "เปิด/ปิด Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+      AimbotEnabled = Value
+   end,
+})
+
+Tab1:CreateToggle({
+   Name = "แสดง วงกลม FOV",
+   CurrentValue = false,
+   Callback = function(Value)
+      FOVVisible = Value
+   end,
+})
+
+Tab1:CreateSlider({
+   Name = "ขนาด FOV",
+   Range = {30, 500},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 100,
+   Callback = function(Value)
+      AimbotFOV = Value
+   end,
+})
+
+Tab1:CreateToggle({
+   Name = "ไม่ล็อกหลังกำแพง (Wall Check)",
+   CurrentValue = false,
+   Callback = function(Value)
+      WallCheck = Value
+   end,
+})
+
+Tab1:CreateToggle({
+   Name = "ไม่ล็อกทีมเดียวกัน (Team Check)",
+   CurrentValue = false,
+   Callback = function(Value)
+      TeamCheck = Value
+   end,
+})
+
+Tab1:CreateSection("--- มองผู้เล่น & เครื่องเล่นเพลง ---")
+
+Tab1:CreateToggle({
+   Name = "มองผู้เล่น (ESP Highlight)",
+   CurrentValue = false,
+   Callback = function(Value)
+      ESPEnabled = Value
+      if not Value then
+          for _, p in pairs(Players:GetPlayers()) do
+              if p.Character and p.Character:FindFirstChild("PlayerHighlight") then
+                  p.Character.PlayerHighlight:Destroy()
+              end
+          end
+      end
+   end,
+})
+
+local MusicID = ""
+Tab1:CreateInput({
+   Name = "ใส่ ID เพลง",
+   PlaceholderText = "เช่น 1848354536",
+   RemoveTextOnFocus = false,
+   Callback = function(Text)
+      MusicID = Text
+   end,
+})
+
+Tab1:CreateButton({
+   Name = "เล่นเพลง",
+   Callback = function()
+      if CurrentSound then CurrentSound:Destroy() end
+      if MusicID ~= "" then
+          CurrentSound = Instance.new("Sound")
+          CurrentSound.SoundId = "rbxassetid://" .. MusicID
+          CurrentSound.Volume = 2
+          CurrentSound.Looped = true
+          CurrentSound.Parent = workspace
+          CurrentSound:Play()
+      end
+   end,
+})
+
+Tab1:CreateButton({
+   Name = "หยุดเพลง",
+   Callback = function()
+      if CurrentSound then
+          CurrentSound:Stop()
+          CurrentSound:Destroy()
+          CurrentSound = nil
+      end
+   end,
+})
+
+-- TAB 2: หน้าที่ 2 (ตัวผู้เล่น & การเคลื่อนที่)
+local Tab2 = Window:CreateTab("ตัวผู้เล่น", 4483362458)
+
+Tab2:CreateSection("--- การปรับแต่งตัวละคร ---")
+
+Tab2:CreateSlider({
+   Name = "ปรับความไวการวิ่ง (WalkSpeed)",
+   Range = {16, 250},
+   Increment = 1,
+   Suffix = " Speed",
+   CurrentValue = 16,
+   Callback = function(Value)
+      WalkSpeedValue = Value
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+          LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = Value
+      end
+   end,
+})
+
+Tab2:CreateSlider({
+   Name = "ปรับความสูงการกระโดด (JumpPower)",
+   Range = {50, 300},
+   Increment = 5,
+   Suffix = " Power",
+   CurrentValue = 50,
+   Callback = function(Value)
+      JumpPowerValue = Value
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+          local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+          hum.UseJumpPower = true
+          hum.JumpPower = Value
+      end
+   end,
+})
+
+Tab2:CreateToggle({
+   Name = "กระโดดไม่จำกัด (Infinite Jump)",
+   CurrentValue = false,
+   Callback = function(Value)
+      InfJumpEnabled = Value
+   end,
+})
+
+Tab2:CreateToggle({
+   Name = "เดินทะลุกำแพง (Noclip)",
+   CurrentValue = false,
+   Callback = function(Value)
+      NoclipEnabled = Value
+   end,
+})
+
+Tab2:CreateToggle({
+   Name = "บิน (Fly)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Flying = Value
+      if Flying then
+          StartFly()
+      end
+   end,
+})
+
+Tab2:CreateSlider({
+   Name = "ความเร็วการบิน",
+   Range = {10, 200},
+   Increment = 5,
+   Suffix = " Speed",
+   CurrentValue = 50,
+   Callback = function(Value)
+      FlySpeed = Value
+   end,
+})
+
+-- รักษาสถานะ WalkSpeed / JumpPower เมื่อรีสปอว์น
+LocalPlayer.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid")
+    hum.WalkSpeed = WalkSpeedValue
+    hum.UseJumpPower = true
+    hum.JumpPower = JumpPowerValue
+end)
+
+-- TAB 3: หน้าที่ 3 (เกี่ยวกับ & เครดิต)
+local Tab3 = Window:CreateTab("ผู้สร้าง & ลิงก์", 4483362458)
+
+Tab3:CreateSection("--- ข้อมูลผู้พัฒนา ---")
+
+Tab3:CreateParagraph({
+    Title = "ชื่อผู้สร้าง",
+    Content = "ซัน"
+})
+
+Tab3:CreateParagraph({
+    Title = "ชื่อ Script",
+    Content = "สร้างไปเรื่อยเวอร์ชั่นเต็ม"
+})
+
+Tab3:CreateSection("--- ช่องทางการติดตาม ---")
+
+Tab3:CreateButton({
+   Name = "คัดลอกลิงก์ TikTok",
+   Callback = function()
+      setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+      Rayfield:Notify({
+         Title = "คัดลอกแล้ว!",
+         Content = "ก๊อปปี้ลิงก์ TikTok ลง คลิปบอร์ดเรียบร้อยแล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
+Rayfield:Notify({
+   Title = "โหลดสคริปต์สำเร็จ!",
+   Content = "สร้างไปเรื่อยเวอร์ชั่นเต็ม โดย ซัน พร้อมใช้งานแล้ว",
+   Duration = 5,
+   Image = 4483362458,
+})
