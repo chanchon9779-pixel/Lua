@@ -1,0 +1,109 @@
+-- โหลด Rayfield Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้าง Window หลัก
+local Window = Rayfield:CreateWindow({
+   Name = "น้องซัน67",
+   Icon = 0,
+   LoadingTitle = "น้องซัน67 Script",
+   LoadingSubtitle = "by sun_ggez0",
+   Theme = "Default",
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "SunScriptConfig"
+   },
+
+   -- ปุ่มสลับเปิด-ปิด UI (Keybind Defaults)
+   KeySystem = false,
+})
+
+-- ** ระบบปุ่ม Toggle สำหรับเปิด/ปิด UI หน้าจอ **
+local ScreenGui = Instance.new("ScreenGui")
+local ToggleButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Parent = game:GetService("CoreGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Name = "SunScriptToggleGui"
+
+ToggleButton.Parent = ScreenGui
+ToggleButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+ToggleButton.Position = UDim2.new(0.015, 0, 0.15, 0)
+ToggleButton.Size = UDim2.new(0, 50, 0, 50)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "SUN"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextSize = 18.000
+ToggleButton.Active = true
+ToggleButton.Draggable = true -- สามารถลากปุ่มไปมาบนหน้าจอได้
+
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = ToggleButton
+
+local uiOpen = true
+ToggleButton.MouseButton1Click:Connect(function()
+    uiOpen = not uiOpen
+    Rayfield:SetVisibility(uiOpen)
+end)
+
+----------------------------------------------------
+-- Tab 1: หน้าฟังก์ชันหลัก (Main)
+----------------------------------------------------
+local MainTab = Window:CreateTab("ฟังก์ชั่นหลัก", 4483362458) -- ใส่ ID ไอคอนได้ตามชอบ
+
+local MainSection = MainTab:CreateSection("ระบบรับรางวัล")
+
+MainTab:CreateButton({
+   Name = "กดรับรางวัล (Claim Reward)",
+   Callback = function()
+       local args = {
+           "ClaimReward"
+       }
+       game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("EventManagerClient"):WaitForChild("ServerEvent"):FireServer(unpack(args))
+       
+       Rayfield:Notify({
+          Title = "สำเร็จ!",
+          Content = "ส่งคำขอรับรางวัลเรียบร้อยแล้ว",
+          Duration = 3,
+          Image = 4483362458,
+       })
+   end,
+})
+
+----------------------------------------------------
+-- Tab 2: หน้าเครดิตผู้สร้าง (Credits & TikTok)
+----------------------------------------------------
+local CreditTab = Window:CreateTab("ผู้สร้าง", 4483362458)
+
+CreditTab:CreateSection("คนสร้างสคริปต์")
+
+CreditTab:CreateLabel("ชื่อสคริปต์: น้องซัน67")
+CreditTab:CreateLabel("ผู้พัฒนา: sun_ggez0")
+
+CreditTab:CreateSection("ช่องทางการติดตาม")
+
+local TikTokLink = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg"
+
+CreditTab:CreateButton({
+   Name = "ก๊อปปี้ลิงก์ TikTok",
+   Callback = function()
+       -- ก๊อปปี้ลิงก์เข้า Clipboard ของผู้เล่น
+       setclipboard(TikTokLink)
+       
+       Rayfield:Notify({
+          Title = "คัดลอกแล้ว!",
+          Content = "ก๊อปปี้ลิงก์ TikTok เรียบร้อย นำไปวางในเบราว์เซอร์ได้เลย",
+          Duration = 4,
+          Image = 4483362458,
+       })
+   end,
+})
+
+CreditTab:CreateParagraph({
+    Title = "Link TikTok:",
+    Content = TikTokLink
+})
