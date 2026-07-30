@@ -1,0 +1,186 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้างหน้าต่างหลัก (Window)
+local Window = Rayfield:CreateWindow({
+   Name = "Sun Hub",
+   LoadingTitle = "กำลังโหลด สคริปต์...",
+   LoadingSubtitle = "by Sun",
+   ConfigurationSaving = {
+      Enabled = false
+   },
+   KeySystem = false
+})
+
+-- ตัวแปรสำหรับ Hitbox
+local HitboxEnabled = false
+local HitboxSize = 20
+local TransparencyValue = 0.7
+
+-- ฟังก์ชันจัดการ Hitbox
+local function ApplyHitbox(player)
+    if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = player.Character.HumanoidRootPart
+        if HitboxEnabled then
+            hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+            hrp.Transparency = TransparencyValue
+            hrp.BrickColor = BrickColor.new("Really red")
+            hrp.Material = Enum.Material.ForceField
+            hrp.CanCollide = false
+        else
+            hrp.Size = Vector3.new(2, 2, 1)
+            hrp.Transparency = 1
+            hrp.BrickColor = BrickColor.new("Medium stone grey")
+            hrp.Material = Enum.Material.Plastic
+            hrp.CanCollide = true
+        end
+    end
+end
+
+-- ลูปอัปเดต Hitbox ตลอดเวลา
+task.spawn(function()
+    while task.wait(0.5) do
+        for _, p in pairs(game.Players:GetPlayers()) do
+            ApplyHitbox(p)
+        end
+    end
+end)
+
+----------------------------------------------------
+-- Tab 1: หน้าหลัก (Main)
+----------------------------------------------------
+local MainTab = Window:CreateTab("หน้าหลัก", 4483362458) -- ใช้ icon ID
+
+-- Section: Hitbox
+MainTab:CreateSection("ระบบ Hitbox")
+
+MainTab:CreateToggle({
+   Name = "เปิด / ปิด Hitbox",
+   CurrentValue = false,
+   Callback = function(Value)
+      HitboxEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ปรับขนาด Hitbox",
+   Range = {2, 100},
+   Increment = 1,
+   Suffix = " Size",
+   CurrentValue = 20,
+   Callback = function(Value)
+      HitboxSize = Value
+   end,
+})
+
+-- Section: Teleport
+MainTab:CreateSection("ระบบวาร์ป (Teleport)")
+
+local TargetPlayerName = ""
+local PlayerDropdown
+
+local function GetPlayerNames()
+    local names = {}
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= game.Players.LocalPlayer then
+            table.insert(names, p.Name)
+        end
+    end
+    return names
+end
+
+PlayerDropdown = MainTab:CreateDropdown({
+   Name = "เลือกผู้เล่นที่ต้องการวาร์ปไปหา",
+   Options = GetPlayerNames(),
+   CurrentOption = "",
+   Callback = function(Option)
+      TargetPlayerName = type(Option) == "table" and Option[1] or Option
+   end,
+})
+
+-- อัปเดตราายชื่อผู้เล่นอัตโนมัติเมื่อมีคนเข้า/ออก
+game.Players.PlayerAdded:Connect(function()
+    PlayerDropdown:Refresh(GetPlayerNames())
+end)
+game.Players.PlayerRemoving:Connect(function()
+    PlayerDropdown:Refresh(GetPlayerNames())
+end)
+
+MainTab:CreateButton({
+   Name = "วาร์ปไปหาผู้เล่น",
+   Callback = function()
+      if TargetPlayerName ~= "" then
+         local target = game.Players:FindFirstChild(TargetPlayerName)
+         if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local myChar = game.Players.LocalPlayer.Character
+            if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+               myChar.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 3)
+            end
+         end
+      end
+   end,
+})
+
+----------------------------------------------------
+-- Tab 2: ผู้สร้าง (Credit)
+----------------------------------------------------
+local CreditTab = Window:CreateTab("คนสร้างสคริปต์", 4483362458)
+
+CreditTab:CreateSection("คนสร้างสคริปต์")
+
+CreditTab:CreateParagraph({
+    Title = "ผู้พัฒนา", 
+    Content = "สคริปต์นี้สร้างโดย: Sun"
+})
+
+CreditTab:CreateInput({
+   Name = "TikTok ลิ้งก์",
+   PlaceholderText = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      -- แสดงเฉยๆ หรือให้ก๊อปปี้
+   end,
+})
+
+CreditTab:CreateButton({
+   Name = "คัดลอก ลิ้งก์ TikTok",
+   Callback = function()
+      setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+      Rayfield:Notify({
+         Title = "สำเร็จ!",
+         Content = "คัดลอกลิ้งก์ TikTok ลงใน Clipboard แล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
+
+----------------------------------------------------
+-- สร้างปุ่มลอย "sun" สำหรับเปิด/ปิด UI
+----------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+local OpenButton = Instance.new("TextButton")
+local UICorner = Instance.new("UICorner")
+
+ScreenGui.Name = "SunToggleButtonGui"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+
+OpenButton.Name = "OpenButton"
+OpenButton.Parent = ScreenGui
+OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+OpenButton.Position = UDim2.new(0, 10, 0.5, 0)
+OpenButton.Size = UDim2.new(0, 60, 0, 60)
+OpenButton.Font = Enum.Font.SourceSansBold
+OpenButton.Text = "sun"
+OpenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+OpenButton.TextSize = 22.000
+OpenButton.Active = true
+OpenButton.Draggable = true -- ทำให้ลากปุ่มไปมาบนจอได้
+
+UICorner.CornerRadius = UDim.new(0, 12)
+UICorner.Parent = OpenButton
+
+-- เมื่อกดปุ่มลอย ให้เปิด/ปิด UI Rayfield
+OpenButton.MouseButton1Click:Connect(function()
+    Rayfield:ToggleUI()
+end)
