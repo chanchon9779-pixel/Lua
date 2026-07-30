@@ -1,0 +1,307 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้าง หน้าต่างสคริปต์
+local Window = Rayfield:CreateWindow({
+   Name = "aimbot คุณซัน script",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "โดย คุณซัน",
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "SunHubConfig"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvitelink",
+      RememberJoins = true
+   },
+   KeySystem = false
+})
+
+-- ตัวแปรระบบ (Settings)
+local Settings = {
+   -- Hitbox
+   HitboxEnabled = false,
+   HitboxSize = 2,
+   
+   -- Aimbot
+   AimbotEnabled = false,
+   TeamCheck = true,
+   WallCheck = true,
+   FOVSize = 100,
+   
+   -- ESP
+   ESPEnabled = false,
+   
+   -- Fly
+   FlyEnabled = false,
+   FlySpeed = 50
+}
+
+-- [ ระบบคำนวณเบื้องหลัง ] --
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- วงกลม FOV Aimbot
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Thickness = 1.5
+FOVCircle.NumSides = 60
+FOVCircle.Radius = Settings.FOVSize
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- อัปเดตตำแหน่ง FOV ตามเมาส์
+RunService.RenderStepped:Connect(function()
+   FOVCircle.Position = UserInputService:GetMouseLocation()
+   FOVCircle.Radius = Settings.FOVSize
+   FOVCircle.Visible = Settings.AimbotEnabled
+end)
+
+-- ฟังก์ชันเช็คกำแพง (Wallcheck)
+local function IsVisible(targetPart)
+   if not Settings.WallCheck then return true end
+   local origin = Camera.CFrame.Position
+   local raycastParams = RaycastParams.new()
+   raycastParams.FilterType = RaycastFilterType.Exclude
+   raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+   
+   local result = workspace:Raycast(origin, targetPart.Position - origin, raycastParams)
+   return result == nil
+end
+
+-- ฟังก์ชันหาเป้าหมาย Aimbot
+local function GetClosestTarget()
+   local closestPlayer = nil
+   local shortestDistance = Settings.FOVSize
+   local mousePos = UserInputService:GetMouseLocation()
+
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+         
+         -- เช็คทีม
+         if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+            continue
+         end
+
+         local hrp = player.Character.HumanoidRootPart
+         local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+
+         if onScreen then
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+            if distance < shortestDistance then
+               -- เช็คกำแพง
+               if IsVisible(hrp) then
+                  shortestDistance = distance
+                  closestPlayer = player
+               end
+            end
+         end
+      end
+   end
+   return closestPlayer
+end
+
+-- ลูปการทำงาน Aimbot & Hitbox & ESP
+RunService.RenderStepped:Connect(function()
+   -- Aimbot Loop
+   if Settings.AimbotEnabled then
+      local target = GetClosestTarget()
+      if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+         Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.HumanoidRootPart.Position)
+      end
+   end
+
+   -- Hitbox & ESP Loop
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+         local hrp = player.Character.HumanoidRootPart
+         
+         -- ขยาย Hitbox
+         if Settings.HitboxEnabled then
+            hrp.Size = Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
+            hrp.Transparency = 0.7
+            hrp.BrickColor = BrickColor.new("Really red")
+            hrp.Material = Enum.Material.Neon
+            hrp.CanCollide = false
+         else
+            hrp.Size = Vector3.new(2, 2, 1)
+            hrp.Transparency = 1
+         end
+
+         -- ESP มองทะลุ
+         local highlight = player.Character:FindFirstChild("SunESP")
+         if Settings.ESPEnabled then
+            if not highlight then
+               highlight = Instance.new("Highlight")
+               highlight.Name = "SunESP"
+               highlight.FillColor = Color3.fromRGB(255, 0, 0)
+               highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+               highlight.Parent = player.Character
+            end
+         else
+            if highlight then
+               highlight:Destroy()
+            end
+         end
+      end
+   end
+end)
+
+-- ระบบบิน (Fly)
+local bv, bg
+RunService.RenderStepped:Connect(function()
+   if Settings.FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+      local hrp = LocalPlayer.Character.HumanoidRootPart
+      if not hrp:FindFirstChild("FlyBV") then
+         bv = Instance.new("BodyVelocity")
+         bv.Name = "FlyBV"
+         bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+         bv.Parent = hrp
+         
+         bg = Instance.new("BodyGyro")
+         bg.Name = "FlyBG"
+         bg.MaxTorque = Vector3.new(1e9, 1e9, 1e9)
+         bg.P = 9e4
+         bg.Parent = hrp
+      end
+
+      bg.CFrame = Camera.CFrame
+      local moveDir = LocalPlayer.Character:FindFirstChildOfClass("Humanoid").MoveDirection
+      bv.Velocity = (Camera.CFrame.LookVector * moveDir.Z * -Settings.FlySpeed) + (Camera.CFrame.RightVector * moveDir.X * Settings.FlySpeed)
+   else
+      if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+         local hrp = LocalPlayer.Character.HumanoidRootPart
+         if hrp:FindFirstChild("FlyBV") then hrp.FlyBV:Destroy() end
+         if hrp:FindFirstChild("FlyBG") then hrp.FlyBG:Destroy() end
+      end
+   end
+end)
+
+
+-- ==================== [ หน้าที่ 1: เมนูฟังก์ชันหลัก ] ====================
+local MainTab = Window:CreateTab("ฟังก์ชันหลัก", 4483362458) -- ไอคอนตั้งต้น
+
+-- หมวดหมู่ Aimbot
+MainTab:CreateSection("ระบบล็อกเป้า (Aimbot)")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+      Settings.AimbotEnabled = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "ไม่ล็อกพวกเดียวกัน (Team Check)",
+   CurrentValue = true,
+   Callback = function(Value)
+      Settings.TeamCheck = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "ไม่ล็อกคนหลังกำแพง (Wall Check)",
+   CurrentValue = true,
+   Callback = function(Value)
+      Settings.WallCheck = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขยายวงกลม FOV",
+   Range = {10, 500},
+   Increment = 5,
+   Suffix = "px",
+   CurrentValue = 100,
+   Callback = function(Value)
+      Settings.FOVSize = Value
+   end,
+})
+
+-- หมวดหมู่ Hitbox & Visuals
+MainTab:CreateSection("ระบบขยาย Hitbox & ESP")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน ขยาย Hitbox",
+   CurrentValue = false,
+   Callback = function(Value)
+      Settings.HitboxEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขนาด Hitbox",
+   Range = {2, 50},
+   Increment = 1,
+   Suffix = " Size",
+   CurrentValue = 2,
+   Callback = function(Value)
+      Settings.HitboxSize = Value
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน ESP (มองทะลุ)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Settings.ESPEnabled = Value
+   end,
+})
+
+-- หมวดหมู่ Movement
+MainTab:CreateSection("ระบบการเคลื่อนที่")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งานระบบบิน (Fly)",
+   CurrentValue = false,
+   Callback = function(Value)
+      Settings.FlyEnabled = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ความเร็วในการบิน",
+   Range = {10, 300},
+   Increment = 5,
+   Suffix = " Speed",
+   CurrentValue = 50,
+   Callback = function(Value)
+      Settings.FlySpeed = Value
+   end,
+})
+
+
+-- ==================== [ หน้าที่ 2: ผู้พัฒนาและเครดิต ] ====================
+local CreditTab = Window:CreateTab("คนสร้างสคริปต์", 4483362458)
+
+CreditTab:CreateSection("ผู้พัฒนาสคริปต์")
+
+CreditTab:CreateLabel("คนสร้างสคริปต์: คุณซัน")
+
+CreditTab:CreateInput({
+   Name = "ลิงก์ TikTok ช่องคุณซัน (ก๊อปปี้ตรงนี้ได้)",
+   PlaceholderText = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+      -- ช่องสำหรับก๊อปปี้ลิงก์
+   end,
+})
+
+CreditTab:CreateButton({
+   Name = "คัดลอกลิงก์ TikTok ลง คลิปบอร์ด",
+   Callback = function()
+      setclipboard("https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg")
+      Rayfield:Notify({
+         Title = "คัดลอกสำเร็จ!",
+         Content = "ก๊อปปี้ลิงก์ TikTok ของคุณซันเรียบร้อยแล้ว",
+         Duration = 3,
+         Image = 4483362458,
+      })
+   end,
+})
