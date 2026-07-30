@@ -1,0 +1,217 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "HUB | สคริปต์ผู้สร้าง",
+   LoadingTitle = "กำลังโหลดสคริปต์...",
+   LoadingSubtitle = "โดย Sun_ggez0",
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "BigHub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "",
+      RememberJoins = true
+   },
+   KeySystem = false
+})
+
+---------------------------------------------------------
+-- VARIABLES
+---------------------------------------------------------
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+-- Hitbox Variables
+local HitboxSize = 2
+local HitboxTransparency = 0.5
+local HitboxEnabled = false
+
+-- Aimbot Variables
+local MobileAimbot = false
+local AimFOV = 150
+
+-- ESP Variables
+local ESPEnabled = false
+
+---------------------------------------------------------
+-- TAB 1: Main Functions (ฟังก์ชันหลัก)
+---------------------------------------------------------
+local MainTab = Window:CreateTab("ฟังก์ชันหลัก", 4483362458) -- Title, Image
+
+-- Section: Hitbox
+MainTab:CreateSection("ระบบ Hitbox")
+
+MainTab:CreateToggle({
+   Name = "เปิดใช้งาน Hitbox",
+   CurrentValue = false,
+   Flag = "HitboxToggle",
+   Callback = function(Value)
+      HitboxEnabled = Value
+      if not Value then
+         -- รีเซ็ตขนาดกลับเมื่อปิด
+         for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+               player.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
+               player.Character.HumanoidRootPart.Transparency = 1
+               player.Character.HumanoidRootPart.CanCollide = true
+            end
+         end
+      end
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ขนาด Hitbox",
+   Range = {2, 50},
+   Increment = 1,
+   Suffix = " Studs",
+   CurrentValue = 2,
+   Flag = "HitboxSizeSlider",
+   Callback = function(Value)
+      HitboxSize = Value
+   end,
+})
+
+MainTab:CreateSlider({
+   Name = "ความโปร่งใส Hitbox",
+   Range = {0, 1},
+   Increment = 0.1,
+   Suffix = " Transparency",
+   CurrentValue = 0.5,
+   Flag = "HitboxTransSlider",
+   Callback = function(Value)
+      HitboxTransparency = Value
+   end,
+})
+
+-- Section: ESP & Aimbot
+MainTab:CreateSection("Aimbot & มองผู้เล่น")
+
+MainTab:CreateToggle({
+   Name = "มองเห็นผู้เล่น (ESP/Highlight)",
+   CurrentValue = false,
+   Flag = "ESPToggle",
+   Callback = function(Value)
+      ESPEnabled = Value
+      if not Value then
+         -- ลบ Highlight เมื่อปิด
+         for _, player in pairs(Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("ESPHighlight") then
+               player.Character.ESPHighlight:Destroy()
+            end
+         end
+      end
+   end,
+})
+
+MainTab:CreateToggle({
+   Name = "Aimbot มือถือ (ล็อกหัวอัตโนมัติ)",
+   CurrentValue = false,
+   Flag = "AimbotToggle",
+   Callback = function(Value)
+      MobileAimbot = Value
+   end,
+})
+
+---------------------------------------------------------
+-- TAB 2: Creator Info (ผู้สร้างสคริปต์)
+---------------------------------------------------------
+local InfoTab = Window:CreateTab("ผู้สร้างสคริปต์", 4483362458)
+
+InfoTab:CreateSection("เครดิตคนสร้างสคริปต์")
+
+InfoTab:CreateLabel("สคริปต์นี้พัฒนาโดย: Sun_ggez0")
+
+InfoTab:CreateButton({
+   Name = "ก๊อปปี้ลิงก์ TikTok ผู้สร้าง",
+   Callback = function()
+      local tiktokUrl = "https://www.tiktok.com/@sun_ggez0?_r=1&_t=ZS-98SSUSAnjHg"
+      if setclipboard then
+         setclipboard(tiktokUrl)
+         Rayfield:Notify({
+            Title = "สำเร็จ!",
+            Content = "คัดลอกลิงก์ TikTok ลงในคลิปบอร์ดแล้ว",
+            Duration = 3,
+            Image = 4483362458,
+         })
+      else
+         print("TikTok Link: " .. tiktokUrl)
+      end
+   end,
+})
+
+---------------------------------------------------------
+-- LOOPS & LOGIC
+---------------------------------------------------------
+
+-- Hitbox & ESP Loop
+RunService.RenderStepped:Connect(function()
+   for _, player in pairs(Players:GetPlayers()) do
+      if player ~= LocalPlayer and player.Character then
+         
+         -- Hitbox Logic
+         local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+         if hrp then
+            if HitboxEnabled then
+               hrp.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+               hrp.Transparency = HitboxTransparency
+               hrp.BrickColor = BrickColor.new("Really red")
+               hrp.Material = Enum.Material.Neon
+               hrp.CanCollide = false
+            end
+         end
+
+         -- ESP Logic
+         if ESPEnabled then
+            if not player.Character:FindFirstChild("ESPHighlight") then
+               local highlight = Instance.new("Highlight")
+               highlight.Name = "ESPHighlight"
+               highlight.FillColor = Color3.fromRGB(255, 0, 0)
+               highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+               highlight.FillTransparency = 0.5
+               highlight.OutlineTransparency = 0
+               highlight.Parent = player.Character
+            end
+         else
+            if player.Character:FindFirstChild("ESPHighlight") then
+               player.Character.ESPHighlight:Destroy()
+            end
+         end
+
+      end
+   end
+end)
+
+-- Mobile Aimbot Logic (ล็อกเป้าหมายที่ใกล้จุดศูนย์กลางจอที่สุด)
+RunService.RenderStepped:Connect(function()
+   if MobileAimbot then
+      local closestPlayer = nil
+      local shortestDistance = AimFOV
+
+      for _, player in pairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local head = player.Character.Head
+            local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+            if onScreen then
+               local screenSize = Camera.ViewportSize
+               local mousePos = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+               local distance = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+
+               if distance < shortestDistance then
+                  closestPlayer = head
+                  shortestDistance = distance
+               end
+            end
+         end
+      end
+
+      if closestPlayer then
+         Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestPlayer.Position)
+      end
+   end
+end)
