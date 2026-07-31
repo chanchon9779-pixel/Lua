@@ -1,0 +1,93 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Gun Script | Silent Aim",
+   LoadingTitle = "Loading Script...",
+   LoadingSubtitle = "by Assistant",
+   ConfigurationSaving = {
+      Enabled = false,
+   },
+   KeySystem = false,
+})
+
+local MainTab = Window:CreateTab("Main", 4483362458) -- Title, Image
+
+-- Variables
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+local SilentAimEnabled = false
+local AimPart = "Head" -- "Head" หรือ "HumanoidRootPart"
+
+-- Function หาศัตรูที่อยู่ใกล้เป้า Mouse มากที่สุด
+local function GetClosestTarget()
+    local ClosestPlayer = nil
+    local MaxDistance = math.huge
+
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(AimPart) and v.Character:FindFirstChildOfClass("Humanoid") then
+            -- ตรวจสอบว่าศัตรูยังมีชีวิตอยู่ไหม
+            if v.Character.Humanoid.Health > 0 then
+                local ScreenPos, OnScreen = Camera:WorldToViewportPoint(v.Character[AimPart].Position)
+                if OnScreen then
+                    local MousePos = Vector2.new(Mouse.X, Mouse.Y)
+                    local TargetPos = Vector2.new(ScreenPos.X, ScreenPos.Y)
+                    local Distance = (MousePos - TargetPos).Magnitude
+
+                    if Distance < MaxDistance then
+                        MaxDistance = Distance
+                        ClosestPlayer = v
+                    end
+                end
+            end
+        end
+    end
+    return ClosestPlayer
+end
+
+-- Hook/Redirect ตำแหน่งของ Mouse.Hit เพื่อให้กระสุนพุ่งไปหาเป้าหมาย
+local mt = getrawmetatable(game)
+local oldIndex = mt.__index
+setreadonly(mt, false)
+
+mt.__index = newcclosure(function(self, index)
+    if not checkcaller() and SilentAimEnabled and index == "Hit" then
+        local Target = GetClosestTarget()
+        if Target and Target.Character and Target.Character:FindFirstChild(AimPart) then
+            return Target.Character[AimPart].CFrame
+        end
+    end
+    return oldIndex(self, index)
+end)
+
+setreadonly(mt, true)
+
+-- UI Elements
+MainTab:CreateToggle({
+   Name = "Enable Silent Aim (ยิงเข้าเป้าอัตโนมัติ)",
+   CurrentValue = false,
+   Flag = "SilentAimToggle",
+   Callback = function(Value)
+       SilentAimEnabled = Value
+   end,
+})
+
+MainTab:CreateDropdown({
+   Name = "Target Body Part (ส่วนที่ต้องการล็อค)",
+   Options = {"Head", "HumanoidRootPart"},
+   CurrentOption = "Head",
+   MultipleOptions = false,
+   Flag = "AimPartDropdown",
+   Callback = function(Option)
+       AimPart = Option[1]
+   end,
+})
+
+Rayfield:Notify({
+   Title = "Loaded Successfully",
+   Content = "Silent Aim UI พร้อมใช้งานแล้ว!",
+   Duration = 5,
+   Image = 4483362458,
+})
